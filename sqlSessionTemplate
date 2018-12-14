@@ -1,0 +1,24 @@
+private void batchInsert(List<POJO> PojoList) throws Exception{
+
+    if(PoList == null || PoList.size() == 0){
+        return;
+    }
+
+    SqlSession sqlsession = sqlSessionTemplate.getSqlsessionFactory().openSession(ExecutorType.BATH, false);
+
+    XxxxMaper xxxxMaper = sqlsession.getMapper(XxxxMaper.class);
+
+    int i = 0;
+
+    for (POJO pojo : PojoList){
+        xxxxMaper.insertXxxx(pojo);
+        if((i + 1)%200 == 0 || i == PojoList.size() - 1){  // 每两百次操作（除了最后一次以外），提交一次
+            sqlsession.commit();
+            sqlsession.clearCache();
+        }
+    }
+    sqlsession.close();
+
+}
+
+
