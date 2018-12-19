@@ -1,0 +1,31 @@
+@Autowired
+private ConnectionFactory connectionFactory;
+
+
+@Bean
+@RabbitListener
+public SimpleMessageListenerContainer notiProcess(){
+	
+	SimpleMessageListenerContainer listener = new SimpleMessageListenerContainer(connectionFactory);
+	listener.setQueueNames("要监听的队列名称");
+	listener.setConcurrentConsumer(1);
+	listener.setMessageListener( (ChannelAwareMessageListener)(message, channel) ->{
+		byte[] body = message.getBody();
+		if(null != body){
+			try{
+				String msg = new String(body);
+				
+				// 调用服务处理接收的字符串。。。
+        XxxxService.processMsg(msg);
+        
+        // 经rabbitMQ转发后，可能存在字符串多了一些转义字符，
+				// 需要先处理才能获得发送方发送字符串的原始形式
+				
+			}catch(Exception e){
+				e.printStackTrace();
+			}
+		}
+	});
+	return listener;
+	 
+}
