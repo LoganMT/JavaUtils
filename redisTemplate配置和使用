@@ -1,0 +1,197 @@
+### 引入依赖
+ <!-- springboot整合redis -->  
+        <dependency>  
+            <groupId>org.springframework.boot</groupId>  
+            <artifactId>spring-boot-starter-data-redis</artifactId>  
+        </dependency> 
+		
+		
+### yml中配置redis
+
+# 形式一
+spring.redis.hostName=127.0.0.1
+spring.redis.port=6379    
+spring.redis.pool.maxActive=8    
+spring.redis.pool.maxWait=-1    
+spring.redis.pool.maxIdle=8    
+spring.redis.pool.minIdle=0    
+spring.redis.timeout=0 
+
+# 形式二
+  redis:
+    host: 127.0.0.1
+    port: 6379
+    pool:
+      max-active: 8
+      max-wait: 1
+      max-idle: 8
+      min-idle: 0
+    timeout: 0
+	
+
+# 形式三
+
+spring:
+    application:
+        name: spring-boot-redis
+    redis:
+        host: 192.168.145.132
+        port: 6379
+        timeout: 20000
+        cluster:
+            nodes: 192.168.211.134:7000,192.168.211.134:7001,192.168.211.134:7002
+            maxRedirects: 6
+        pool:
+            max-active: 8
+            min-idle: 0
+            max-idle: 8
+            max-wait: -1	
+			
+			
+			
+
+# 形式四
+
+spring:
+    redis:
+		password:XXXXXXXXXXXXXX
+        cluster:
+            nodes: 192.168.219.134:6379,192.168.219.135:6379,192.168.219.136:6379
+            maxRedirects: 6
+		commandTimeout: 2000
+        pool:
+            max-active: 8
+            min-idle: 5
+            max-idle: 30
+            max-wait: -1  # 或者别的时间，如3000
+			
+			
+			
+### redis配置类
+
+import com.fasterxml.jackson.annotation.JsonAutoDetect;
+import com.fasterxml.jackson.annotation.PropertyAccessor;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.cache.CacheManager;
+import org.springframework.cache.annotation.EnableCaching;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.data.redis.cache.RedisCacheManager;
+import org.springframework.data.redis.connection.RedisConnectionFactory;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer;
+import org.springframework.data.redis.serializer.StringRedisSerializer;
+
+
+@Configuration
+@EnableCaching//开启注解
+public class RedisConfig {
+    @Bean
+    public CacheManager cacheManager(RedisTemplate<?, ?> redisTemplate) {
+        CacheManager cacheManager = new RedisCacheManager(redisTemplate);
+        return cacheManager;
+        /*RedisCacheManager rcm = new RedisCacheManager(redisTemplate);
+        // 多个缓存的名称,目前只定义了一个
+        rcm.setCacheNames(Arrays.asList("thisredis"));
+        //设置缓存默认过期时间(秒)
+        rcm.setDefaultExpiration(600);
+        return rcm;*/
+    }
+    // 以下两种redisTemplate自由根据场景选择
+    @Bean
+    public RedisTemplate<Object, Object> redisTemplate(RedisConnectionFactory connectionFactory) {
+        RedisTemplate<Object, Object> template = new RedisTemplate<>();
+        template.setConnectionFactory(connectionFactory);
+
+        //使用Jackson2JsonRedisSerializer来序列化和反序列化redis的value值（默认使用JDK的序列化方式）
+        Jackson2JsonRedisSerializer serializer = new Jackson2JsonRedisSerializer(Object.class);
+
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.setVisibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.ANY);
+        mapper.enableDefaultTyping(ObjectMapper.DefaultTyping.NON_FINAL);
+        serializer.setObjectMapper(mapper);
+
+        template.setValueSerializer(serializer);
+        //使用StringRedisSerializer来序列化和反序列化redis的key值
+        template.setKeySerializer(new StringRedisSerializer());
+        template.afterPropertiesSet();
+        return template;
+    }
+    @Bean
+    public StringRedisTemplate stringRedisTemplate(RedisConnectionFactory factory) {
+        StringRedisTemplate stringRedisTemplate = new StringRedisTemplate();
+        stringRedisTemplate.setConnectionFactory(factory);
+        return stringRedisTemplate;
+    }
+}
+	
+
+
+### RedisTemplate封装工具类
+
+public class RedisTemplateUtils {
+	  /**
+     * 默认过期时长，单位：秒
+     */
+    public static final long DEFAULT_EXPIRE = 60 * 60 * 24;
+	
+	
+    private RedisTemplateUtils() {
+    }
+	
+
+    @Autowired
+	RedisTemplate<String, String> stringStringredisTemplate;
+	
+	@Autowired
+	RedisTemplate<Object, Object> objectObjectRedisTemplate;
+	
+	@Autowired
+	StringRedisTemplate stringRedisTemplate;
+	
+	
+	public void setStringWithExpireTime(String key, String value){
+        stringStringredisTemplate.opsForValue().set(key, value1, DEFAULT_EXPIRE);
+       
+    }
+	/**
+     * 带有过期时间的字符串读写，过期时间单位：秒
+     */
+	public void setStringWithExpireTime(String key, String value, int timeOut){
+        stringStringredisTemplate.opsForValue().set(key, value1, timeOut, TimeUnit.SECONDS);
+       
+    }
+	
+	public String getStringWithExpireTime(String key){
+        return stringStringredisTemplate.opsForValue().get(key);
+        
+    }
+	
+	public String deleteStringWithExpireTime(String key){
+        stringStringredisTemplate.opsForValue().getOperations().delete(key);
+        
+    }
+	
+	public String updateStringWithExpireTime(String key, String value){
+        stringStringredisTemplate.opsForValue().set(key, value);
+        
+    }
+	
+	  /**
+     * 带有过期时间的Object对象读写，过期时间单位：秒
+     */
+	
+	public void setStringWithExpireTime(String key, String value, int timeOut){
+        objectObjectRedisTemplate.opsForValue().set(key, value1, timeOut, TimeUnit.SECONDS);
+       
+    }
+	
+	public String getStringWithExpireTime(String key){
+        return objectObjectRedisTemplate.opsForValue().get(key);
+        
+    }
+	
+
+}	
+			
