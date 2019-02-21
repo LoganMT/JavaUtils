@@ -1,0 +1,68 @@
+### 请求携带cookie
+
+RestTemplate restTemplate= new RestTemplate();
+HttpHeaders headers=new HttpHeaders();
+List<String> cookies=new ArrayList<>();
+cookies.add("JSESSIONID="+String.nullToEmpty(jsessionId));
+cookies.add("token="+Strings.nullToEmpty(token));
+headers.put(HttpHeaders.COOKIE,cookies);
+HttpEntity request=new HttpEntity(null,headers);
+ResponseEntity<String> response=restTemplate.postForEntity(url,request,String.class);
+
+
+
+
+### post表单
+
+RestTemplate restTemplate=new RestTemplate();
+HttpHeaders headers=new HttpHeaders();
+headers.setContentType(MediaType.APPLICATION_FROM_URLENCODED);
+MultiValueMap<String,String> map=new LinkedMultiValueMap<String,String>();
+map.add("title",title);
+map.add("userid",toUserId);
+HttpEntity<MultiValueMap<String,String>> reqest=new HttpEntity<MultiValueMap<String,String>>(map,headers);
+ResponseEntity<String> response=restTemplate.postForEntity(url,request,String.class);
+
+
+
+### post json
+
+RestTemplate restTemplate=new RestTemplate();
+HttpHeaders headers=new HttpHeaders();
+headers.setContentType(MediaType.APPLICATION_JSON);
+headers.setAccept(Lists.newArrayList(MediaType.APPLICATION_JSON));
+HttpEntity<String> entity=new HttpEntity<String>(requestJSON,headers);
+ResponseEntity<String> resp=restTemplate.postForEntity(url,entity,String.class);
+
+
+
+### url post
+
+String template=baseUrl+"/demo?app={0}&userId={1}";
+String url=MessageFormat.format(template,app,userId);
+return restTemplate.postForEntity(url,null,String.class);
+
+
+
+### 请求图片
+
+RestTemplate restTemplate=new RestTemplate();
+HttpHeaders headers=new HttpHeaders();
+headers.setAccept(Arrays.asList(MediaType.APPLICATION_OCTET_STREAM));
+HttpEntity<String> entity=new HttpEntity<String>(headers);
+ResponseEntity<byte[]> response=restTemplate.exchange(url,HttpMethod.GET,entity,byte[].class);
+byte[] imageBytes=response.getBody();
+
+
+
+### GEt请求
+
+RestTemplate restTemplate=new RestTemplate();
+HttpHeaders headers=new HttpHeaders();
+HttpEntity request=new HttpEntity(null,headers); // 或者 HttpEntity request=new HttpEntity(parameter,headers);
+String body  = restTemplate.exchange(url, HttpMethod.GET, entity, String.class).getBody;
+T body = JSONObject.parseObject(body, czz) // czz为解析生成的对象 ，或者不加 T body = JSONObject.parseObject(body)
+
+
+
+
