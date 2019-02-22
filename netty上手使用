@@ -1,0 +1,562 @@
+Netty基本使用：
+
+###首先自定义包头
+Header.java
+
+首先自定义包头
+Header.java
+
+
+package com.test.netty.message;    
+/** 
+ * Header.java 
+ * 自定义协议包头 
+ * @author janehuang 
+ * @version 1.0 
+ */ 
+public class Header {  
+  private byte tag;  
+ /* 编码*/  
+  private byte encode;  
+  /*加密*/  
+  private byte encrypt;  
+  /*其他字段*/  
+  private byte extend1;  
+  /*其他2*/  
+  private byte extend2;  
+  /*会话id*/  
+  private String sessionid;  
+  /*包的长度*/  
+  private int length = 1024;  
+  /*命令*/ 
+  private int cammand;  
+   
+  public Header() {  
+   
+  }  
+   
+  public Header(String sessionid) {  
+    this.encode = 0;  
+    this.encrypt = 0;  
+    this.sessionid = sessionid;  
+  }  
+   
+  public Header(byte tag, byte encode, byte encrypt, byte extend1, byte extend2, String sessionid, int length, int cammand) {  
+    this.tag = tag;  
+    this.encode = encode;  
+    this.encrypt = encrypt;  
+    this.extend1 = extend1;  
+    this.extend2 = extend2;  
+    this.sessionid = sessionid;  
+    this.length = length;  
+    this.cammand = cammand;  
+  }  
+   
+  @Override 
+  public String toString() {  
+    return "header [tag=" + tag + "encode=" + encode + ",encrypt=" + encrypt + ",extend1=" + extend1 + ",extend2=" + extend2 + ",sessionid=" + sessionid + ",length=" + length + ",cammand=" 
+        + cammand + "]";  
+  }  
+  
+  getter and setter
+}
+
+
+### Message.java
+
+package com.test.netty.message;    
+import io.netty.buffer.ByteBuf;  
+import io.netty.buffer.Unpooled;   
+import java.io.ByteArrayOutputStream;  
+import java.io.IOException;  
+import java.io.UnsupportedEncodingException;   
+import com.test.netty.decoder.MessageDecoder;   
+/** 
+ * Message.java 
+ *  
+ * @author janehuang 
+ * @version 1.0 
+ */ 
+public class Message {  
+   
+  private Header header;  
+   
+  private String data;  
+   
+  public Header getHeader() {  
+    return header;  
+  }  
+   
+  public void setHeader(Header header) {  
+    this.header = header;  
+  }  
+   
+  public String getData() {  
+    return data;  
+  }  
+   
+  public void setData(String data) {  
+    this.data = data;  
+  }  
+   
+  public Message(Header header) {  
+    this.header = header;  
+  }  
+   
+  public Message(Header header, String data) {  
+    this.header = header;  
+    this.data = data;  
+  }  
+  public byte[] toByte() {  
+    ByteArrayOutputStream out = new ByteArrayOutputStream();  
+    out.write(MessageDecoder.PACKAGE_TAG);  
+    out.write(header.getEncode());  
+    out.write(header.getEncrypt());  
+    out.write(header.getExtend1());  
+    out.write(header.getExtend2());  
+    byte[] bb = new byte[32];  
+    byte[] bb2 = header.getSessionid().getBytes();  
+    for (int i = 0; i < bb2.length; i++) {  
+      bb[i] = bb2[i];  
+    }  
+   
+    try {  
+      out.write(bb);  
+   
+      byte[] bbb = data.getBytes("UTF-8");  
+      out.write(intToBytes2(bbb.length));  
+      out.write(intToBytes2(header.getCammand()));  
+      out.write(bbb);  
+      out.write('\n');  
+    } catch (UnsupportedEncodingException e) {  
+      // TODO Auto-generated catch block  
+      e.printStackTrace();  
+    } catch (IOException e) {  
+      // TODO Auto-generated catch block  
+      e.printStackTrace();  
+    }  
+    return out.toByteArray();  
+  }  
+   
+  public static byte[] intToByte(int newint) {  
+    byte[] intbyte = new byte[4];  
+    intbyte[3] = (byte) ((newint >> 24) & 0xFF);  
+    intbyte[2] = (byte) ((newint >> 16) & 0xFF);  
+    intbyte[1] = (byte) ((newint >> 8) & 0xFF);  
+    intbyte[0] = (byte) (newint & 0xFF);  
+    return intbyte;  
+  }  
+  public static int bytesToInt(byte[] src, int offset) {  
+    int value;  
+    value = (int) ((src[offset] & 0xFF) | ((src[offset + 1] & 0xFF) << 8) | ((src[offset + 2] & 0xFF) << 16) | ((src[offset + 3] & 0xFF) << 24));  
+    return value;  
+  }  
+   
+  public static byte[] intToBytes2(int value) {  
+    byte[] src = new byte[4];  
+    src[0] = (byte) ((value >> 24) & 0xFF);  
+    src[1] = (byte) ((value >> 16) & 0xFF);  
+    src[2] = (byte) ((value >> 8) & 0xFF);  
+    src[3] = (byte) (value & 0xFF);  
+    return src;  
+  }  
+   
+  public static void main(String[] args) {  
+    ByteBuf heapBuffer = Unpooled.buffer(8);  
+    System.out.println(heapBuffer);  
+    ByteArrayOutputStream out = new ByteArrayOutputStream();  
+    try {  
+      out.write(intToBytes2(1));  
+    } catch (IOException e) {  
+      // TODO Auto-generated catch block  
+      e.printStackTrace();  
+    }  
+    byte[] data = out.toByteArray();  
+    heapBuffer.writeBytes(data);  
+    System.out.println(heapBuffer);  
+    int a = heapBuffer.readInt();  
+    System.out.println(a);  
+  }    
+}
+
+### 解码器
+MessageDecoder.java
+
+package com.test.netty.decoder; 
+import io.netty.buffer.ByteBuf; 
+import io.netty.channel.ChannelHandlerContext; 
+import io.netty.handler.codec.ByteToMessageDecoder; 
+import io.netty.handler.codec.CorruptedFrameException;  
+import java.util.List;  
+import com.test.netty.message.Header; 
+import com.test.netty.message.Message; 
+/** 
+ * HeaderDecoder.java 
+ * 
+ * @author janehuang 
+ * @version 1.0 
+ */
+public class MessageDecoder extends ByteToMessageDecoder { 
+  /**包长度志头**/
+  public static final int HEAD_LENGHT = 45; 
+  /**标志头**/
+  public static final byte PACKAGE_TAG = 0x01; 
+  @Override
+  protected void decode(ChannelHandlerContext ctx, ByteBuf buffer, List<Object> out) throws Exception { 
+    buffer.markReaderIndex(); 
+    if (buffer.readableBytes() < HEAD_LENGHT) { 
+      throw new CorruptedFrameException("包长度问题"); 
+    } 
+    byte tag = buffer.readByte(); 
+    if (tag != PACKAGE_TAG) { 
+      throw new CorruptedFrameException("标志错误"); 
+    } 
+    byte encode = buffer.readByte(); 
+    byte encrypt = buffer.readByte(); 
+    byte extend1 = buffer.readByte(); 
+    byte extend2 = buffer.readByte(); 
+    byte sessionByte[] = new byte[32]; 
+    buffer.readBytes(sessionByte); 
+    String sessionid = new String(sessionByte,"UTF-8"); 
+    int length = buffer.readInt(); 
+    int cammand=buffer.readInt(); 
+    Header header = new Header(tag,encode, encrypt, extend1, extend2, sessionid, length, cammand); 
+    byte[] data=new byte[length]; 
+    buffer.readBytes(data); 
+    Message message = new Message(header,new String(data,"UTF-8")); 
+    out.add(message); 
+  } 
+}
+
+### 编码器
+MessageEncoder.java
+
+package com.test.netty.encoder; 
+import com.test.netty.decoder.MessageDecoder; 
+import com.test.netty.message.Header; 
+import com.test.netty.message.Message;  
+import io.netty.buffer.ByteBuf; 
+import io.netty.channel.ChannelHandlerContext; 
+import io.netty.handler.codec.MessageToByteEncoder;   
+/** 
+ * MessageEncoder.java 
+ * 
+ * @author janehuang 
+ * @version 1.0 
+ */
+public class MessageEncoder extends MessageToByteEncoder<Message> {  
+  @Override
+  protected void encode(ChannelHandlerContext ctx, Message msg, ByteBuf out) throws Exception { 
+      Header header = msg.getHeader(); 
+      out.writeByte(MessageDecoder.PACKAGE_TAG); 
+      out.writeByte(header.getEncode()); 
+      out.writeByte(header.getEncrypt()); 
+      out.writeByte(header.getExtend1()); 
+      out.writeByte(header.getExtend2()); 
+      out.writeBytes(header.getSessionid().getBytes()); 
+      out.writeInt(header.getLength()); 
+      out.writeInt(header.getCammand()); 
+      out.writeBytes(msg.getData().getBytes("UTF-8")); 
+  }  
+}
+
+### 服务器
+TimeServer.java
+
+package com.test.netty.server; 
+import org.springframework.stereotype.Component; 
+import io.netty.bootstrap.ServerBootstrap; 
+import io.netty.buffer.ByteBuf; 
+import io.netty.buffer.Unpooled; 
+import io.netty.channel.ChannelFuture; 
+import io.netty.channel.ChannelInitializer; 
+import io.netty.channel.ChannelOption; 
+import io.netty.channel.EventLoopGroup; 
+import io.netty.channel.nio.NioEventLoopGroup; 
+import io.netty.channel.socket.SocketChannel; 
+import io.netty.channel.socket.nio.NioServerSocketChannel; 
+import io.netty.handler.codec.LineBasedFrameDecoder;  
+import com.test.netty.decoder.MessageDecoder; 
+import com.test.netty.encoder.MessageEncoder; 
+import com.test.netty.handler.ServerHandler; 
+/** 
+ * ChatServer.java 
+ * 
+ * @author janehuang 
+ * @version 1.0 
+ */
+@Component
+public class TimeServer {  
+  private int port=88888; 
+  public void run() throws InterruptedException { 
+    EventLoopGroup bossGroup = new NioEventLoopGroup(); 
+    EventLoopGroup workerGroup = new NioEventLoopGroup(); 
+    ByteBuf heapBuffer = Unpooled.buffer(8); 
+    heapBuffer.writeBytes("\r".getBytes()); 
+    try { 
+      ServerBootstrap b = new ServerBootstrap(); // (2) 
+      b.group(bossGroup, workerGroup).channel(NioServerSocketChannel.class) // (3) 
+          .childHandler(new ChannelInitializer<SocketChannel>() { // (4) 
+                @Override
+                public void initChannel(SocketChannel ch) throws Exception { 
+                  ch.pipeline().addLast("encoder", new MessageEncoder()).addLast("decoder", new MessageDecoder()).addFirst(new LineBasedFrameDecoder(65535)) 
+                      .addLast(new ServerHandler()); 
+                } 
+              }).option(ChannelOption.SO_BACKLOG, 1024) // (5) 
+          .childOption(ChannelOption.SO_KEEPALIVE, true); // (6) 
+      ChannelFuture f = b.bind(port).sync(); // (7) 
+      f.channel().closeFuture().sync(); 
+    } finally { 
+      workerGroup.shutdownGracefully(); 
+      bossGroup.shutdownGracefully(); 
+    } 
+  } 
+    public void start(int port) throws InterruptedException{ 
+   this.port=port; 
+   this.run(); 
+  }  
+}
+
+### 处理器并分发
+ServerHandler.java
+
+package com.test.netty.handler;  
+import io.netty.channel.ChannelHandlerAdapter; 
+import io.netty.channel.ChannelHandlerContext;  
+import com.test.netty.invote.ActionMapUtil; 
+import com.test.netty.message.Header; 
+import com.test.netty.message.Message; 
+/** 
+ * 
+ * @author janehuang 
+ * 
+ */
+public class ServerHandler extends ChannelHandlerAdapter { 
+ 
+  @Override
+  public void channelActive(ChannelHandlerContext ctx) throws Exception { 
+    String content="我收到连接"; 
+    Header header=new Header((byte)0, (byte)1, (byte)1, (byte)1, (byte)0, "713f17ca614361fb257dc6741332caf2",content.getBytes("UTF-8").length, 1); 
+    Message message=new Message(header,content); 
+    ctx.writeAndFlush(message);      
+  } 
+  
+  @Override
+  public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) { 
+    cause.printStackTrace(); 
+    ctx.close(); 
+  } 
+  
+  @Override
+  public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception { 
+     Message m = (Message) msg; // (1) 
+       
+    /* 请求分发*/
+    ActionMapUtil.invote(header.getCammand(),ctx, m); 
+  }      
+}
+
+### 分发工具类
+ActionMapUtil.java
+
+package com.test.netty.invote; 
+import java.lang.reflect.Method; 
+import java.util.HashMap; 
+import java.util.Map; 
+public class ActionMapUtil { 
+  private static Map<Integer, Action> map = new HashMap<Integer, Action>();  
+  public static Object invote(Integer key, Object... args) throws Exception { 
+    Action action = map.get(key); 
+    if (action != null) { 
+      Method method = action.getMethod(); 
+      try { 
+        return method.invoke(action.getObject(), args); 
+      } catch (Exception e) { 
+        throw e; 
+      } 
+    } 
+    return null; 
+  }  
+  public static void put(Integer key, Action action) { 
+    map.put(key, action); 
+  }  
+} 
+
+### 为分发创建的对象
+Action.java
+
+package com.test.netty.invote;  
+import java.lang.reflect.Method;  
+public class Action {    
+  private Method method; 
+  private Object object;  
+  public Method getMethod() { 
+    return method; 
+  } 
+  
+  public void setMethod(Method method) { 
+    this.method = method; 
+  } 
+  
+  public Object getObject() { 
+    return object; 
+  } 
+  
+  public void setObject(Object object) { 
+    this.object = object; 
+  } 
+}
+
+### 自定义注解，类似springmvc 里面的@Controller
+
+NettyController.java
+
+package com.test.netty.core;  
+import java.lang.annotation.Documented; 
+import java.lang.annotation.ElementType; 
+import java.lang.annotation.Retention; 
+import java.lang.annotation.RetentionPolicy; 
+import java.lang.annotation.Target;  
+import org.springframework.stereotype.Component;  
+@Retention(RetentionPolicy.RUNTIME) 
+@Target(ElementType.TYPE) 
+@Documented
+@Component
+public @interface NettyController { 
+}
+
+### 类型spring mvc里面的@ReqestMapping
+ActionMap.java
+
+package com.test.netty.core; 
+import java.lang.annotation.Documented; 
+import java.lang.annotation.ElementType; 
+import java.lang.annotation.Retention; 
+import java.lang.annotation.RetentionPolicy; 
+import java.lang.annotation.Target;  
+@Retention(RetentionPolicy.RUNTIME) 
+@Target(ElementType.METHOD) 
+@Documented
+public @interface ActionMap { 
+    int key();     
+}
+// 加了这些注解是为了spring初始化bean后把这些对象存到容器,此bean需要在spring配置，spring bean 实例化后会调用
+
+### ActionBeanPostProcessor.java
+
+package com.test.netty.core; 
+import java.lang.reflect.Method; 
+import org.springframework.beans.BeansException; 
+import org.springframework.beans.factory.config.BeanPostProcessor; 
+import com.test.netty.invote.Action; 
+import com.test.netty.invote.ActionMapUtil; 
+public class ActionBeanPostProcessor implements BeanPostProcessor { 
+  public Object postProcessBeforeInitialization(Object bean, String beanName) throws BeansException { 
+    return bean; 
+  } 
+  
+  public Object postProcessAfterInitialization(Object bean, String beanName) throws BeansException { 
+    Method[] methods=bean.getClass().getMethods(); 
+    for (Method method : methods) { 
+      ActionMap actionMap=method.getAnnotation(ActionMap.class); 
+      if(actionMap!=null){ 
+        Action action=new Action(); 
+        action.setMethod(method); 
+        action.setObject(bean); 
+        ActionMapUtil.put(actionMap.key(), action); 
+      } 
+    } 
+    return bean; 
+  } 
+} 
+
+### controller实例
+UserController.java
+
+package com.test.netty.controller;  
+import io.netty.channel.ChannelHandlerContext;  
+import org.springframework.beans.factory.annotation.Autowired; 
+import com.test.model.UserModel; 
+import com.test.netty.core.ActionMap; 
+import com.test.netty.core.NettyController; 
+import com.test.netty.message.Message; 
+import com.test.service.UserService; 
+  
+@NettyController() 
+public class UserAction { 
+ 
+  @Autowired
+  private UserService userService; 
+    
+  @ActionMap(key=1) 
+  public String login(ChannelHandlerContext ct,Message message){ 
+    UserModel userModel=this.userService.findByMasterUserId(1000001); 
+    System.out.println(String.format("用户昵称:%s;密码%d;传人内容%s", userModel.getNickname(),userModel.getId(),message.getData())); 
+    return userModel.getNickname(); 
+  }  
+}
+
+### applicationContext.xml配置文件记得加入这个
+?
+1
+<bean class="com.test.netty.core.ActionBeanPostProcessor"/>
+
+### 测试代码
+package test; 
+import org.springframework.context.ApplicationContext; 
+import org.springframework.context.support.ClassPathXmlApplicationContext; 
+import com.test.netty.server.TimeServer; 
+public class Test { 
+  public static void main(String[] args) { 
+     ApplicationContext ac = new ClassPathXmlApplicationContext("applicationContext.xml");  
+     TimeServer timeServer= ac.getBean(TimeServer.class); 
+     try { 
+      timeServer.start(8888); 
+    } catch (InterruptedException e) { 
+      // TODO Auto-generated catch block 
+      e.printStackTrace(); 
+    } 
+  } 
+} 
+
+### 测试开关端
+package test;  
+import java.io.IOException; 
+import java.io.OutputStream; 
+import java.net.Socket; 
+import java.util.Scanner; 
+import com.test.netty.message.Header; 
+import com.test.netty.message.Message;  
+public class ClientTest { 
+   public static void main(String[] args) { 
+    try { 
+      // 连接到服务器 
+      Socket socket = new Socket("127.0.0.1", 8888);  
+      try { 
+        // 向服务器端发送信息的DataOutputStream 
+        OutputStream out = socket.getOutputStream(); 
+        // 装饰标准输入流，用于从控制台输入 
+        Scanner scanner = new Scanner(System.in); 
+        while (true) { 
+          String send = scanner.nextLine(); 
+          System.out.println("客户端：" + send); 
+          byte[] by = send.getBytes("UTF-8"); 
+          Header header = new Header((byte) 1, (byte) 1, (byte) 1, (byte) 1, (byte) 1, "713f17ca614361fb257dc6741332caf2", by.length, 1); 
+          Message message = new Message(header, send); 
+          out.write(message.toByte()); 
+          out.flush(); 
+          // 把从控制台得到的信息传送给服务器 
+          // out.writeUTF("客户端：" + send); 
+          // 读取来自服务器的信息 
+        } 
+  
+      } finally { 
+        socket.close(); 
+      } 
+    } catch (IOException e) { 
+      e.printStackTrace(); 
+    } 
+  } 
+}
+
+### 来源：https://www.jb51.net/article/134008.htm
