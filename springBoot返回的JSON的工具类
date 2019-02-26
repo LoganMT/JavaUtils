@@ -1,0 +1,48 @@
+
+
+### springBoot返回的JSON的工具类
+pubilc class ResultUtil implement Serializable{
+
+	private static final Long serialVersonUID= XXXXXXXXXXXXXXL;
+	
+	pubilc static <T> Map setSuccess(String key, T value){
+		Map map = new HashMap();
+		map.put("code", "888888");
+		map.put("msg", "操作成功");
+		map.put(key, value);
+		return map;
+	}
+	
+	pubilc static <T> Map setSuccess(T value){
+		Map map = new HashMap();
+		map.put("code", "888888");
+		map.put("msg", "操作成功");
+		map.putAll(value);
+		return map;
+	}
+	
+	pubilc static <T> Map setSuccess(){
+		Map map = new HashMap();
+		map.put("code", "888888");
+		map.put("msg", "操作成功");
+		return map;
+	}
+	
+	pubilc static <T> Map setError(ErrorEnum errorEnum, String key, T value){
+		Map map = new HashMap();
+		map.put("code", errorEnum.getErrorCode);
+		map.put("msg", errorEnum.getMsg);
+		return map;
+	}
+	
+	pubilc static <T> Map setSuccessForPageHelper(String key, T value, int pages, long total){
+		Map map = new HashMap();
+		map.put("code", "888888");
+		map.put("msg", "操作成功");
+		map.put(key, value);
+		map.put("pages", pages);
+		map.put("total", total);
+		return map;
+	}
+	
+}
